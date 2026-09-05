@@ -1,17 +1,19 @@
 {
   "name": "tiny-siege",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
-  "description": "An offline, simultaneous-turn fortress duel for two local players.",
+  "description": "A fortress duel for two friends, locally or online.",
   "scripts": {
-    "test": "node --test tests/engine.test.cjs",
-    "build": "node scripts/build.cjs",
+    "test": "node --test tests/engine.test.cjs tests/rooms.test.cjs",
+    "build": "node scripts/build-site.cjs && node scripts/build.cjs",
     "start": "node scripts/serve.cjs",
     "test:browser": "npx playwright test",
-    "format": "prettier --write index.html style.css app.js scene.js engine.js scripts/*.cjs tests/**/*.cjs playwright.config.cjs"
+    "format": "prettier --write index.html style.css app.js scene.js engine.js scripts/*.cjs tests/**/*.cjs playwright.config.cjs",
+    "build:release": "node scripts/build.cjs",
+    "db:generate": "drizzle-kit generate --config drizzle.config.cjs"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22.13"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

@@ -1,5 +1,12 @@
 # Tiny Siege 1.0.0 — verification record
 
+## Version 1.1.0 addition: online friends and tutorial
+
+- 23 automated rule and service tests pass: the original 17 plus six room-service tests using SQLite. Coverage includes two-seat admission, hashed credentials, private pending orders, authenticated reads, concurrent resolution exactly once, stale rounds and match IDs, reconnect, mutual knockout, two-player rematch, forfeit, malformed input, cross-origin rejection, and overspending.
+- Nine browser scenarios pass in Chrome: all seven original local scenarios plus an online match between two isolated browser contexts (including reload/reconnect, private entry, both-player advance, draw, and rematch) and tutorial metadata/playback/captions/dialog closure.
+- The tutorial is a real 141.8-second H.264/AAC MP4 with synthesized narration, English WebVTT captions, a poster, standard playback controls, and a readable transcript.
+- Online state lives in a persistent database, with only a private seat credential stored in each player's browser. There is no AI opponent or chat. No external human playtest is claimed.
+
 Tested on Windows, September 4, 2026.
 
 ## Verified environments
@@ -43,6 +50,6 @@ The build produces a portable runtime ZIP, a source ZIP, and SHA-256 checksums. 
 - Private entry uses physical handoff and the other player's cooperation. It is not designed to resist developer tools or screen recording.
 - Active matches are not saved across reload or browser closure. Sound/display settings are saved when browser storage is available.
 - Touch layouts work, but fine targeting is easier on a desktop; Windows desktop is the primary platform.
-- Online multiplayer, AI opponents, gamepads, and native executable installers are outside this local two-player release.
+- As of version 1.1, two-player online rooms are included. AI opponents, gamepads, and native executable installers remain outside scope.
 
 No known issues in the tested scenarios prevent learning the rules, entering orders, completing a match, or starting a rematch.

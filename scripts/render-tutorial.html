@@ -1,0 +1,21 @@
+<!doctype html><html><body style="margin:0"><canvas id="film" width="1280" height="720"></canvas><script src="../engine.js"></script><script src="../scene.js"></script><script>
+const film=document.querySelector('canvas'),c=film.getContext('2d'),scene=document.createElement('canvas');
+function text(t,x,y,size=24,color='#263b40',font='Segoe UI'){c.fillStyle=color;c.font=`${size}px ${font}`;c.fillText(t,x,y);}
+function draw(t,chapters){
+  let i=chapters.findIndex(ch=>t<ch.end);if(i<0)i=chapters.length-1;
+  const ch=chapters[i],local=t-ch.start,progress=Math.min(1,local/(ch.end-ch.start));
+  c.fillStyle='#f1eee5';c.fillRect(0,0,1280,720);text('TINY SIEGE',45,40,18);text(ch.label,860,40,14,'#387f85');text(ch.title,45,102,40,'#263b40','Georgia');
+  let game=Siege.newGame(),opts={time:t*1000};
+  if(i===0){opts={...opts,planning:true,side:0,kind:'fire',plan:{kind:'fire',weapon:'mortar',target:{x:4,y:0}}};}
+  if(i===1){opts={...opts,planning:true,side:0,kind:'build',plan:{kind:'build',placements:[{x:2,y:0,type:'timber'},...(progress>.3?[{x:2,y:1,type:'stone'}]:[]),...(progress>.6?[{x:2,y:2,type:'brace'}]:[])]}};}
+  if(i===2){game.players[0].board['4,0'].hp=14;opts={...opts,planning:true,side:0,kind:'reinforce',plan:{kind:'reinforce',targets:[{x:4,y:0},{x:1,y:0}]}};}
+  if(i===3){const weapon=['cannon','drill','scatter','mortar'][Math.min(3,Math.floor(progress*4))];opts={...opts,planning:true,side:0,kind:'fire',plan:{kind:'fire',weapon,target:{x:4,y:0}}};text(Siege.WEAPONS[weapon].name.toUpperCase(),990,102,20,'#b44b29');}
+  if(i===4){game.players[1].board['0,0']=Siege.cell('timber');game.players[1].board['0,1']=Siege.cell('stone');game.players[1].board['0,2']=Siege.cell('timber');const before=Siege.clone(game);const result=Siege.resolve(game,[{kind:'fire',weapon:'cannon',target:{x:0,y:0}},{kind:'pass'}]);const q=Math.min(1,Math.max(0,(local-3)/3));game=q>.62?result.game:before;opts.animation={t:q,events:result.events,attacks:result.attacks};}
+  if(i===5){const plans=[{kind:'fire',weapon:'mortar',target:{x:4,y:0}},{kind:'fire',weapon:'cannon',target:{x:4,y:0}}];const result=Siege.resolve(game,plans);const q=(local%5)/5;game=q>.62?result.game:game;opts.animation={t:q,events:result.events,attacks:result.attacks};}
+  if(i!==7)SiegeScene.render(scene,game,opts);
+  else{game.players[0].board['2,0']=Siege.cell('mint');game.players[0].board['2,1']=Siege.cell('arsenal');SiegeScene.render(scene,game,opts);}
+  c.drawImage(scene,0,135,1280,485);
+  if(i===6){c.fillStyle='#263b40eF';c.fillRect(185,190,910,355);text('YOUR ONLINE ROOM',235,244,16,'#f0c192');text('Send a link. Start a siege.',235,300,36,'#faf8f1','Georgia');for(let n=0;n<3;n++){text(['1  Create room','2  Copy invite link','3  Friend joins'][n],235,365+n*55,26,progress>n/3?'#faf8f1':'#82918c');}}
+  c.fillStyle='#263b40';c.fillRect(0,630,1280,90);text(ch.tip,45,670,24,'#faf8f1');text(`${i+1} / ${chapters.length}`,1175,670,18,'#ecb28d');c.fillStyle='#df7048';c.fillRect(0,713,1280*t/chapters.at(-1).end,7);
+}
+</script></body></html>

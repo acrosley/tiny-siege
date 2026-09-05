@@ -1,17 +1,33 @@
 # Tiny Siege
 
-**Small forts. Big grudges.** A finished, offline fortress duel for two people sharing a computer.
+**Small forts. Big grudges.** A fortress duel for two friends, on one computer or online on separate devices.
+
+## Play with friends online
+
+Open [Tiny Siege online](https://tiny-siege-duels.opal-song-1641.chatgpt.site), then:
+
+1. Select **Play online**, enter your name, choose Classic or Quick, and **Create room**.
+2. Select **Copy invite link** and send it to your friend using your usual messenger.
+3. Your friend opens the link, enters their name, and selects **Join room**. They can also enter the eight-character code.
+4. Plan independently on your own screens. Each player locks one order. The server resolves the round when both are locked.
+5. Both select **Next round** after reviewing the result. Both select **Settle the score** to rematch.
+
+Online orders are validated and resolved on the server. Your rival receives only your locked/unlocked status until resolution, never your pending action or targets. Reloading is safe: select **Play online → Reconnect to my room** in the original browser. Your seat and locked order are restored. Unsubmitted drafts are not saved. Inactive rooms expire after 24 hours. Leaving through **Leave room** is a forfeit; closing a tab simply lets you reconnect later. Share only the invitation, not browser storage or seat credentials.
+
+## Watch the tutorial
+
+Select **Watch tutorial** on the title screen, or **Tutorial** in the header. The 2-minute-22-second video has narration, player controls, English captions, and a text alternative. It covers command rooms, construction, reinforcement, all four weapons, structural collapse, simultaneous orders, room invitations, supplies, and rematches. The video is also bundled with the portable game for offline viewing.
 
 ## Play on Windows
 
-1. Extract **Tiny-Siege-1.0.0-Windows.zip** completely.
+1. Extract **Tiny-Siege-1.1.0-Windows.zip** completely.
 2. Open the extracted **Tiny-Siege** folder.
 3. Double-click **Play Tiny Siege.cmd**, or open **index.html** in Chrome or Microsoft Edge.
 4. Select **How to play**, then **Start a duel**.
 
 No installation, account, network connection, or Node.js is needed to play. Keep the game files together. The game also runs from `index.html` in current desktop browsers on other operating systems. Chrome and Edge on Windows are the verified targets. A mouse or trackpad and a 1024px-wide or larger window are recommended. Tablet and narrow layouts are available; larger screens make targeting easier.
 
-## Your first siege
+## Your first local siege
 
 - Give both commanders a name and choose Classic (24 command health) or Quick (18).
 - Pass the controls when the privacy screen names the next player. The other player looks away.
@@ -63,23 +79,23 @@ From round 13 in Classic, or round 9 in Quick, **Rising pressure** deals 2 unavo
 - The sound button in the header opens a volume slider, sound preview, and reduced-motion setting. Settings are remembered when browser storage permits it. Sound begins after interaction.
 - The **Field manual** is available throughout the game. The **Round journal** contains only completed public rounds.
 
-This is a local honor-system game: the other commander must look away during entry. Pending orders are removed from the visible interface during handoffs; there is no back button that reveals them. No software can stop someone from watching while you enter a choice. Matches are intentionally not saved: reloading or closing loses the current duel, with a browser warning where supported. No telemetry or external asset requests are made.
+Local play uses the honor system: the other commander must look away during entry. Local matches are not saved across reload or closure, with a browser warning where supported. Online room state is saved on the server and uses separate secret seat credentials. Online play makes requests only to the game's own room service. There is no telemetry.
 
 ## Source and development
 
-Requirements for development only: Node.js 18+; Chrome or Edge for browser tests.
+Requirements for development only: Node.js 22.13+; Chrome or Edge for browser tests.
 
 ```powershell
 npm ci --cache .cache
 npm start
 ```
 
-Open http://127.0.0.1:4173. Alternatively open `index.html` directly. The runtime has **zero dependencies** and uses classic scripts so `file://` works offline.
+Open http://127.0.0.1:4173. This starts the static files and online room service, with a local SQLite database in ignored `.data/rooms.sqlite`. The server serves only public game assets. Alternatively open `index.html` directly for local play; the browser runtime has zero libraries and works offline. The hosted version bundles the same room service as a Cloudflare Worker and stores room state in D1.
 
 ```powershell
-npm test              # Deterministic rule tests and 200 seeded full matches
-npm run test:browser  # Full UI matches, privacy, rematch, layouts, offline launch
-npm run build        # Portable game ZIP, source ZIP, checksums
+npm test              # 23 rule/room tests, including 200 seeded full matches
+npm run test:browser  # Local + online full matches, reconnect, video playback
+npm run build        # Hosted Worker/assets + portable/source ZIPs/checksums
 ```
 
 Browser tests use an installed Chrome by default. To use Edge:
@@ -93,10 +109,10 @@ The test suite launches its own local server if one is not running. Browser scre
 
 ## Build outputs
 
-`npm run build` uses only Node built-ins. It copies the offline runtime into `release/Tiny-Siege/` and produces:
+`npm run build` uses esbuild for the hosted Worker, and Node built-ins for ZIP packaging. It copies the offline runtime into `release/Tiny-Siege/` and produces:
 
-- `release/Tiny-Siege-1.0.0-Windows.zip` — extract and play.
-- `release/Tiny-Siege-1.0.0-Source.zip` — source, tests, scripts, and documentation.
+- `release/Tiny-Siege-1.1.0-Windows.zip` — extract and play, with the tutorial.
+- `release/Tiny-Siege-1.1.0-Source.zip` — source, tests, video sources, scripts, and documentation.
 - `release/SHA256SUMS.txt` — integrity hashes of both ZIP files.
 
 The builder uses a fixed ZIP timestamp and stable file ordering for reproducible archives. It never downloads anything or embeds development dependencies.
@@ -114,3 +130,19 @@ The builder uses a fixed ZIP timestamp and stable file ordering for reproducible
 | `PLAYTEST.md` | Verification scope, outcomes, and limitations |
 
 All artwork and sound synthesis are authored in the project. There are no third-party fonts, art, music, or game libraries. Playwright is a development-only dependency, with its upstream license in `node_modules` after installation.
+
+## Online architecture and tutorial sources
+
+`server/rooms.mjs` validates requests, hashes seat credentials, filters public state, and resolves both orders together. A database revision compare-and-swap prevents concurrent submissions from resolving a round twice. Round numbers and match IDs reject stale requests. The schema is in `db/schema.ts`; generated migrations live in `drizzle/`. Generate future migrations with `npm run db:generate`; do not edit migrations already deployed. Hosted `.openai/hosting.json` declares only the logical D1 binding; no secrets are committed. Room data is private to the two seat holders and removed after expiry when new rooms are created.
+
+The local room adapter uses Node's built-in SQLite. To host on another platform, run `npm start` with `HOST=0.0.0.0` and the platform's `PORT`, a persistent `.data` directory, and HTTPS provided by the host. Merely opening `index.html` cannot host online rooms.
+
+Tutorial narration and chapter text are in `scripts/tutorial-chapters.json`. To regenerate on Windows with System.Speech, FFmpeg, Chrome, and development dependencies installed:
+
+```powershell
+powershell -NoProfile -File scripts/narrate-tutorial.ps1
+node scripts/render-tutorial.cjs
+npm run build
+```
+
+Rendering runs in real time for about 142 seconds, then encodes H.264/AAC MP4 with fast-start metadata. Narration is synthesized with the Windows-installed voice. The supplied MP4, caption file, and poster mean ordinary builds do not need speech synthesis or FFmpeg.

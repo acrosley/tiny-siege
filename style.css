@@ -16,6 +16,181 @@
   background: var(--paper);
   font-synthesis: none;
 }
+.hero-secondary {
+  display: flex;
+  gap: 22px;
+  margin-top: 18px;
+}
+.hero-cta {
+  flex-wrap: wrap;
+}
+.online-form {
+  background: var(--card);
+  border: 1px solid var(--line);
+  padding: 30px;
+  border-radius: 12px;
+}
+.online-form label,
+.invite-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 650;
+  margin-bottom: 8px;
+}
+.online-form input,
+.online-form select,
+.invite-input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 13px;
+  font: inherit;
+  background: var(--paper);
+  color: var(--ink);
+  min-width: 0;
+}
+.online-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 35px;
+  margin-top: 28px;
+}
+.online-options h2 {
+  font:
+    26px Georgia,
+    serif;
+}
+.online-options p,
+.online-footnote {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.7;
+  margin: 12px 0 20px;
+}
+.online-options button {
+  margin-top: 18px;
+  width: 100%;
+  font-size: 14px;
+}
+.online-options input {
+  text-transform: uppercase;
+  letter-spacing: 4px;
+}
+.online-footnote {
+  text-align: center;
+  margin-top: 20px;
+}
+#online-error {
+  font-size: 14px;
+  color: var(--orange-dark);
+  margin: 18px 0;
+}
+.room-code {
+  font: 32px monospace;
+  letter-spacing: 7px;
+  margin: 23px 0;
+}
+#network-status {
+  font-size: 13px;
+  color: var(--teal);
+  padding: 14px;
+  text-align: center;
+}
+.invite-input {
+  margin-bottom: 18px;
+  font-size: 13px;
+}
+.online-wait {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  margin: 24px 0;
+  background: var(--card);
+  border: 1px solid var(--line);
+  padding: 25px;
+  border-radius: 10px;
+}
+.online-wait h2 {
+  font:
+    26px Georgia,
+    serif;
+  margin-bottom: 8px;
+}
+.online-wait p {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+.pulse-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--teal);
+  flex-shrink: 0;
+  box-shadow: 0 0 0 7px #387f8510;
+}
+.tutorial-video {
+  width: 100%;
+  border-radius: 8px;
+  background: var(--ink);
+  aspect-ratio: 16/9;
+  display: block;
+}
+.video-caption {
+  margin-top: 14px !important;
+}
+.tutorial-transcript {
+  margin-top: 18px;
+  font-size: 14px;
+}
+.tutorial-transcript summary {
+  cursor: pointer;
+  font-weight: 650;
+  margin-bottom: 10px;
+}
+.modal:has(.tutorial-video) {
+  width: 1000px;
+}
+.modal:has(.tutorial-video) p {
+  font-size: 14px;
+}
+.online-form .secondary {
+  font-size: 14px;
+}
+@media (max-width: 600px) {
+  .online-options {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .online-form {
+    padding: 20px;
+  }
+  .toplinks {
+    gap: 10px;
+  }
+  .toplinks .text-button {
+    font-size: 10px;
+  }
+  .toplinks .small-icon {
+    display: none;
+  }
+  .brand {
+    font-size: 16px;
+    gap: 6px;
+  }
+  .hero-cta {
+    gap: 9px;
+  }
+  .hero-cta .dark-button {
+    padding: 15px;
+  }
+  .online-wait {
+    padding: 18px;
+  }
+  .online-wait h2 {
+    font-size: 22px;
+  }
+}
 * {
   box-sizing: border-box;
 }

@@ -13,7 +13,11 @@ const runtime = [
   "engine.js",
   "scene.js",
   "app.js",
+  "online.js",
   "icon.svg",
+  "assets/tutorial.mp4",
+  "assets/tutorial.vtt",
+  "assets/tutorial-poster.jpg",
   "Play Tiny Siege.cmd",
   "README.md",
 ];
@@ -29,7 +33,30 @@ const source = [
   "scripts/serve.cjs",
   "tests/engine.test.cjs",
   "tests/browser/game.spec.cjs",
+  "tests/browser/online.spec.cjs",
+  "tests/rooms.test.cjs",
+  "server/rooms.mjs",
+  "server/worker.mjs",
+  "server/local-db.cjs",
+  "scripts/build-site.cjs",
+  "scripts/render-tutorial.cjs",
+  "scripts/render-tutorial.html",
+  "scripts/narrate-tutorial.ps1",
+  "scripts/tutorial-chapters.json",
+  "drizzle.config.cjs",
+  "db/schema.ts",
+  ".openai/hosting.json",
 ];
+function collect(directory) {
+  for (const entry of fs.readdirSync(path.join(root, directory), {
+    withFileTypes: true,
+  })) {
+    const relative = directory + "/" + entry.name;
+    if (entry.isDirectory()) collect(relative);
+    else source.push(relative);
+  }
+}
+collect("drizzle");
 const table = Array.from({ length: 256 }, (_, n) => {
   for (let k = 0; k < 8; k++) n = n & 1 ? 0xedb88320 ^ (n >>> 1) : n >>> 1;
   return n >>> 0;
@@ -85,8 +112,10 @@ function zip(files, prefix, destination) {
 }
 const gameDir = path.join(out, "Tiny-Siege");
 fs.mkdirSync(gameDir, { recursive: true });
-for (const file of runtime)
+for (const file of runtime) {
+  fs.mkdirSync(path.dirname(path.join(gameDir, file)), { recursive: true });
   fs.copyFileSync(path.join(root, file), path.join(gameDir, file));
+}
 const packages = [
   `Tiny-Siege-${version}-Windows.zip`,
   `Tiny-Siege-${version}-Source.zip`,

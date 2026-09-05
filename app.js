@@ -57,6 +57,201 @@
   let audio = null,
     toastTimer = null,
     frame = null;
+  const N = window.SiegeOnline;
+  const onlineUrl = "https://tiny-siege-duels.opal-song-1641.chatgpt.site";
+  let room = null,
+    onlineBusy = false,
+    roomRevision = -1,
+    playedResolution = "",
+    queuedRoom = null;
+  const inviteCode = () =>
+    new URLSearchParams(location.search)
+      .get("room")
+      ?.toUpperCase()
+      .replace(/[^A-F0-9]/g, "")
+      .slice(0, 8) || "";
+  function onlineSetup() {
+    return `<main class="setup-wrap enter"><div class="page-heading"><div class="eyebrow"><span class="dot"></span>RIVALRY WITHOUT BORDERS</div><h1>Bring a friend.</h1><p>Two screens. Two secret orders. One shared battlefield.</p></div>${location.protocol === "file:" ? `<div class="manual-callout">Online play runs on the hosted game. <a href="${onlineUrl}" target="_blank" rel="noopener">Open Tiny Siege online ↗</a></div>` : ""}<div class="online-form"><label for="online-name">Your commander name</label><input id="online-name" maxlength="20" value="${esc(names[0])}" autocomplete="nickname"><div class="online-options"><section><h2>Create a room</h2><p>Choose your tempo and send your friend the invite link.</p><label for="online-mode">Match length</label><select id="online-mode"><option value="standard">Classic · 24 command health</option><option value="quick">Quick · 18 command health</option></select><button class="primary" data-do="create-room">Create room →</button></section><section><h2>Join your friend</h2><p>Paste the eight-character room code from your invitation.</p><label for="room-code">Room code</label><input id="room-code" maxlength="8" value="${inviteCode()}" placeholder="A1B2C3D4" autocapitalize="characters" autocomplete="off"><button class="dark-button" data-do="join-room">Join room →</button></section></div><p id="online-error" role="alert"></p>${N.session ? '<button class="secondary" data-do="resume-room">Reconnect to my room ↻</button>' : ""}</div><p class="online-footnote">No accounts needed. Room links invite one friend. Your seat is remembered in this browser. Inactive rooms expire after 24 hours.</p></main>`;
+  }
+  function onlineLobby() {
+    const link = `${location.origin}/?room=${room.code}`;
+    return `<main class="curtain enter"><div class="curtain-card"><div class="curtain-icon">${svg("castle")}</div><div class="eyebrow">YOUR ROOM IS READY</div><h1>A worthy rival<br>is on the way.</h1><p>Send this link to your friend. The match starts when they join.</p><label class="invite-label" for="invite-link">Invite link</label><input id="invite-link" class="invite-input" readonly value="${esc(link)}"><button class="primary" data-do="copy-invite">Copy invite link ↗</button><div class="room-code">${room.code}</div><div id="network-status" role="status">Waiting for a second commander…</div><button class="text-button" data-do="home">Leave room</button></div></main>`;
+  }
+  function onlineWaiting() {
+    return `<main class="match enter"><section class="match-top">${stat(0)}<div class="round-stat"><div class="eyebrow">ONLINE DUEL</div><strong>Room ${room.code}</strong></div>${stat(1)}</section>${stage(false)}<div class="online-wait"><span class="pulse-dot"></span><div><h2>${room.phase === "report" ? "Ready for the next round." : "Your order is sealed."}</h2><p>${room.phase === "report" ? "Waiting for your friend to finish reviewing this round." : "Your friend is still planning. Their order stays private until both are locked."}</p></div></div><div id="network-status" role="status">Connected · you can leave this tab open</div></main>`;
+  }
+  function tutorial() {
+    showModal(
+      "Your first siege, explained.",
+      `<video id="tutorial-video" class="tutorial-video" controls playsinline preload="metadata" poster="assets/tutorial-poster.jpg"><source src="assets/tutorial.mp4" type="video/mp4"><track kind="captions" src="assets/tutorial.vtt" srclang="en" label="English">Your browser cannot play this video. <a href="assets/tutorial.mp4">Download the tutorial</a>.</video><p class="video-caption">A narrated walkthrough of your fortress, secret orders, weapons, collapse, and online invitations. Captions are available in the player.</p><details class="tutorial-transcript"><summary>Read the tutorial instead</summary><p>Protect your crown-marked command room and destroy your rival’s. Start with 10 supplies; earn 4 each round. Build up to 3 connected pieces, reinforce up to 3 blocks, or fire one weapon. Reinforcement costs 2 per block, repairs 6 health, and shields 4 damage for one round. Cannon hits the first block in a row; Drill hits two; Scatter damages a cluster; Mortar hits the exact cell. Defenses resolve before both attacks. Blocks without a path to ground collapse. Braces connect diagonally. Powder explodes when destroyed. Both command rooms falling together is a draw. Rising pressure prevents endless defense. For online play, create a room, copy its invitation, and let your friend join on their device. Lock an order on each screen; the server reveals both together. Both players must choose next round or rematch to continue.</p></details>`,
+    );
+    const v = $("#tutorial-video");
+    v.volume = settings.volume;
+  }
+  function networkMessage(message) {
+    let el = $("#network-status");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "network-status";
+      el.setAttribute("role", "status");
+      $(".shell")?.append(el);
+    }
+    el.textContent = message;
+  }
+  function watchRoom() {
+    N.watch((state, error) => {
+      if (error) {
+        if([401,403,404,410].includes(error.status)){
+          N.forget();room=null;game=null;roomRevision=-1;phase='online-setup';render();
+          $('#online-error').textContent=error.message;return;
+        }
+        networkMessage(
+          error.status === 404 || error.status === 410
+            ? error.message
+            : "Connection interrupted. Reconnecting… Your locked order is safe.",
+        );
+        return;
+      }
+      networkMessage("Connected · Room " + state.code);
+      syncRoom(state);
+    });
+  }
+  function syncRoom(state) {
+    if (phase === "animating") {
+      queuedRoom = state;
+      return;
+    }
+    if (state.revision <= roomRevision && room?.code === state.code) return;
+    const old = room;
+    room = state;
+    roomRevision = state.revision;
+    active = state.side;
+    mode = state.mode;
+    names = state.names;
+    if (state.phase === "closed") {
+      N.forget();
+      room = null;
+      phase = "online-setup";
+      render();
+      toast("This room has closed. Create another duel.");
+      return;
+    }
+    if (state.phase === "lobby") {
+      phase = "online-lobby";
+      render();
+      return;
+    }
+    game = state.game;
+    if (state.phase === "planning") {
+      if (
+        old?.match !== state.match ||
+        old?.game?.round !== state.game.round ||
+        !draft
+      ) {
+        kind = "build";
+        piece = "stone";
+        weapon = "cannon";
+        newDraft();
+      }
+      phase = state.locked[active] ? "online-waiting" : "planning";
+      render();
+      return;
+    }
+    if (state.phase === "result") {
+      phase = "result";
+      render();
+      return;
+    }
+    const id = state.match + ":" + game.history.at(-1).round;
+    if (state.phase === "report" && state.resolution) {
+      plans = state.resolution.plans;
+      if (playedResolution !== id) {
+        playedResolution = id;
+        game = state.resolution.before;
+        resolveRound({
+          game: state.game,
+          events: state.resolution.events,
+          attacks: state.resolution.attacks,
+        });
+        return;
+      }
+      last = {
+        game: state.game,
+        events: state.resolution.events,
+        attacks: state.resolution.attacks,
+      };
+      phase = state.ready[active]
+        ? "online-waiting"
+        : phase === "result"
+          ? "result"
+          : "report";
+      render();
+    }
+  }
+  async function roomAction(action) {
+    if (onlineBusy) return;
+    onlineBusy = true;
+    const b = $(`[data-do="${action}"]`);
+    if (b) b.disabled = true;
+    try {
+      if (action === "create-room" || action === "join-room") {
+        const name = $("#online-name").value.trim();
+        if (!name) throw new Error("Enter your commander name.");
+        const code = $("#room-code").value.trim().toUpperCase();
+        if (action === "join-room" && !/^[A-F0-9]{8}$/.test(code))
+          throw new Error("Enter the eight-character room code.");
+        const state =
+          action === "create-room"
+            ? await N.create(name, $("#online-mode").value)
+            : await N.join(code, name);
+        roomRevision = -1;
+        syncRoom(state);
+        watchRoom();
+      } else if (action === "resume-room") {
+        roomRevision = -1;
+        phase = "online-setup";
+        watchRoom();
+        networkMessage("Reconnecting to your room…");
+      } else if (action === "lock-online") {
+        const p = S.clone(draft);
+        const state = await N.command("order", {
+          match: room.match,
+          round: game.round,
+          plan: p,
+        });
+        draft = null;
+        sound("lock");
+        syncRoom(state);
+      } else if (action === "online-next")
+        syncRoom(
+          await N.command("next", {
+            match: room.match,
+            round: game.history.at(-1).round,
+          }),
+        );
+      else if (action === "online-rematch") {
+        syncRoom(await N.command("rematch", { match: room.match }));
+        if (room.rematch[active])
+          toast("Rematch requested. Waiting for your friend.");
+      } else if (action === "leave-room") {
+        await N.command("leave");
+        N.forget();
+        room = null;
+        roomRevision = -1;
+        game = null;
+        phase = "title";
+        closeModal();
+        render();
+      }
+    } catch (e) {
+      const el = $("#online-error");
+      if (el) el.textContent = e.message;
+      else toast(e.message);
+    } finally {
+      onlineBusy = false;
+      if (b?.isConnected) b.disabled = false;
+    }
+  }
   function saveSettings() {
     try {
       localStorage.setItem("tiny-siege-settings", JSON.stringify(settings));
@@ -116,13 +311,13 @@
     );
   }
   function header() {
-    return `<header class="topbar"><button class="brand" data-do="home" aria-label="Tiny Siege home"><span class="brand-icon">${svg("castle")}</span><span>TINY SIEGE<span> /</span></span></button><span class="edition">A LITTLE LOCAL RIVALRY</span><nav class="toplinks" aria-label="Main navigation"><button class="text-button" data-do="manual"><span class="small-icon">▤</span>Field manual</button><button class="volume-toggle" data-do="settings" aria-label="Sound and display settings">${svg(settings.volume ? "sound" : "mute")}</button></nav></header>`;
+    return `<header class="topbar"><button class="brand" data-do="home" aria-label="Tiny Siege home"><span class="brand-icon">${svg("castle")}</span><span>TINY SIEGE<span> /</span></span></button><span class="edition">A LITTLE FRIENDLY RIVALRY</span><nav class="toplinks" aria-label="Main navigation"><button class="text-button" data-do="tutorial">▷ Tutorial</button><button class="text-button" data-do="manual"><span class="small-icon">▤</span>Field manual</button><button class="volume-toggle" data-do="settings" aria-label="Sound and display settings">${svg(settings.volume ? "sound" : "mute")}</button></nav></header>`;
   }
   function footer() {
-    return '<footer class="footer"><span>TINY SIEGE · LOCAL DUELS, LASTING GRUDGES</span><span>Made for two. <span class="heart">✦</span> No internet needed.</span></footer>';
+    return '<footer class="footer"><span>TINY SIEGE · FRIENDLY DUELS, LASTING GRUDGES</span><span>Made for two. <span class="heart">✦</span> Local & online play.</span></footer>';
   }
   function title() {
-    return `<main class="hero enter"><div class="hero-copy"><div class="eyebrow"><span class="dot"></span>A FORTRESS DUEL FOR TWO</div><h1>Small forts.<br><em>Big grudges.</em></h1><p>Build something glorious. Predict something devious. Then knock your best friend’s command room into next week.</p><div class="hero-cta"><button class="primary" data-do="setup">Start a duel <span class="arrow">↗</span></button><button class="secondary" data-do="manual">How to play</button></div><div class="hero-caption"><span>2 local players</span><span>One shared screen</span><span>10–20 minutes</span></div></div><div class="hero-art"><canvas id="hero-canvas" role="img" aria-label="An improbable timber and stone fortress with an orange flag, a cannon, and an incoming cannonball"></canvas><span class="art-label">Probably structurally sound.</span></div></main><section class="features" aria-label="Game features"><article class="feature"><span class="feature-number">01</span><div><h3>Build your bad idea.</h3><p>Eight pieces. Endless questionable architecture.<br>Make every block count.</p></div></article><article class="feature"><span class="feature-number">02</span><div><h3>Keep them guessing.</h3><p>Secretly build, reinforce, or fire.<br>Read your rival. Hide your intentions.</p></div></article><article class="feature"><span class="feature-number">03</span><div><h3>Let it all come down.</h3><p>Both orders resolve together.<br>One command room left. Usually.</p></div></article></section>${footer()}`;
+    return `<main class="hero enter"><div class="hero-copy"><div class="eyebrow"><span class="dot"></span>A FORTRESS DUEL FOR TWO</div><h1>Small forts.<br><em>Big grudges.</em></h1><p>Build something glorious. Predict something devious. Then knock your best friend’s command room into next week.</p><div class="hero-cta"><button class="primary" data-do="setup">Start a duel <span class="arrow">↗</span></button><button class="dark-button" data-do="online">Play online ↗</button></div><div class="hero-secondary"><button class="text-button" data-do="tutorial">▷ Watch tutorial</button><button class="text-button" data-do="manual">How to play</button></div><div class="hero-caption"><span>2 players</span><span>Local or online</span><span>10–20 minutes</span></div></div><div class="hero-art"><canvas id="hero-canvas" role="img" aria-label="An improbable timber and stone fortress with an orange flag, a cannon, and an incoming cannonball"></canvas><span class="art-label">Probably structurally sound.</span></div></main><section class="features" aria-label="Game features"><article class="feature"><span class="feature-number">01</span><div><h3>Build your bad idea.</h3><p>Eight pieces. Endless questionable architecture.<br>Make every block count.</p></div></article><article class="feature"><span class="feature-number">02</span><div><h3>Keep them guessing.</h3><p>Secretly build, reinforce, or fire.<br>Read your rival. Hide your intentions.</p></div></article><article class="feature"><span class="feature-number">03</span><div><h3>Let it all come down.</h3><p>Both orders resolve together.<br>One command room left. Usually.</p></div></article></section>${footer()}`;
   }
   function setup() {
     return `<main class="setup-wrap enter"><div class="page-heading"><div class="eyebrow"><span class="dot"></span>BEFORE THE FIRST SHOT</div><h1>Meet your rival.</h1><p>Two commanders. One screen. A very temporary peace.</p></div><div class="name-grid"><div class="name-card"><div class="eyebrow">01 / THE EMBER COMPANY</div><label for="name0">Commander’s name</label><input id="name0" maxlength="20" value="${esc(names[0])}" autocomplete="off"><p>Your fortress flies the terracotta flag.</p></div><div class="name-card teal"><div class="eyebrow">02 / THE TIDE COMPANY</div><label for="name1">Commander’s name</label><input id="name1" maxlength="20" value="${esc(names[1])}" autocomplete="off"><p>Your fortress flies the ocean-blue flag.</p></div></div><div class="tool-heading"><span>CHOOSE YOUR TEMPO</span></div><div class="mode-grid"><button class="mode ${mode === "standard" ? "selected" : ""}" data-mode="standard" aria-pressed="${mode === "standard"}"><span class="radio"></span><span><strong>The classic siege</strong><small>24 command health · pressure from round 13</small></span></button><button class="mode ${mode === "quick" ? "selected" : ""}" data-mode="quick" aria-pressed="${mode === "quick"}"><span class="radio"></span><span><strong>A quick grudge</strong><small>18 command health · pressure from round 9</small></span></button></div><div class="setup-bottom"><p><b>A gentleman’s agreement:</b> look away while your rival plans. We’ll cover the screen for every handoff.</p><button class="primary" data-do="begin">To the battlefield <span class="arrow">→</span></button></div></main>${footer()}`;
@@ -208,7 +403,7 @@
         : "Pick a weapon, then choose your target.";
   }
   function planner() {
-    return `<div class="planning-bar"><div class="planning-title"><span class="turn-pill ${active ? "teal" : ""}">PLAYER ${active + 1}</span><h2>${esc(game.players[active].name)}, make your move.</h2></div><div class="private-note">▣ &nbsp; Private order · keep your rival looking away</div></div><section class="planning-panel" aria-label="Secret order planner"><div class="action-tabs" role="group" aria-label="Order type">${[
+    return `<div class="planning-bar"><div class="planning-title"><span class="turn-pill ${active ? "teal" : ""}">PLAYER ${active + 1}</span><h2>${esc(game.players[active].name)}, make your move.</h2></div><div class="private-note">${room ? "● Online · your rival cannot see this order" : "▣ &nbsp; Private order · keep your rival looking away"}</div></div><section class="planning-panel" aria-label="Secret order planner"><div class="action-tabs" role="group" aria-label="Order type">${[
       ["build", "▦", "Build", "Raise the stakes"],
       ["reinforce", "⛨", "Reinforce", "Stand your ground"],
       ["fire", "◉", "Fire", "Make a point"],
@@ -260,7 +455,7 @@
       shots = game.history
         .flatMap((r) => r.plans)
         .filter((p) => p.kind === "fire").length;
-    return `<main class="result enter"><div class="result-icon">${winner === null ? "✹" : "♜"}</div><div class="eyebrow">${winner === null ? "AN HONORABLE DRAW" : "VICTORY / " + (winner === 0 ? "EMBER" : "TIDE") + " COMPANY"}</div><h1>${title}</h1><p>${winner === null ? "Both command rooms fell. Neither ego survived." : "One command room still stands. That’s all the architecture you need."}<br>A fine siege. A questionable friendship.</p><div class="result-stats"><div><strong>${game.history.length}</strong><small>ROUNDS PLAYED</small></div><div><strong>${shots}</strong><small>SHOTS FIRED</small></div><div><strong>${gone}</strong><small>BLOCKS LOST</small></div></div><div class="result-buttons"><button class="primary" data-do="rematch">Settle the score <span class="arrow">↻</span></button><button class="secondary" data-do="setup">New commanders</button><button class="secondary" data-do="home">Title screen</button></div>${stage(false)}<p style="font-size:11px"><button class="text-button" data-do="history">Read the round journal ↗</button></p></main>`;
+    return `<main class="result enter"><div class="result-icon">${winner === null ? "✹" : "♜"}</div><div class="eyebrow">${winner === null ? "AN HONORABLE DRAW" : "VICTORY / " + (winner === 0 ? "EMBER" : "TIDE") + " COMPANY"}</div><h1>${title}</h1><p>${game.result.reason === "forfeit" ? "Your rival left the room. The remaining commander wins by forfeit." : winner === null ? "Both command rooms fell. Neither ego survived." : "One command room still stands. That’s all the architecture you need."}<br>A fine siege. A questionable friendship.</p><div class="result-stats"><div><strong>${game.history.length}</strong><small>ROUNDS PLAYED</small></div><div><strong>${shots}</strong><small>SHOTS FIRED</small></div><div><strong>${gone}</strong><small>BLOCKS LOST</small></div></div><div class="result-buttons"><button class="primary" data-do="rematch">Settle the score <span class="arrow">↻</span></button><button class="secondary" data-do="setup">New commanders</button><button class="secondary" data-do="home">Title screen</button></div>${stage(false)}<p style="font-size:11px"><button class="text-button" data-do="history">Read the round journal ↗</button></p></main>`;
   }
   let renderedPhase = null;
   function render() {
@@ -269,7 +464,7 @@
       frame = null;
     }
     $("#app").innerHTML =
-      `<div class="shell">${header()}${phase === "title" ? title() : phase === "setup" ? setup() : ["curtain", "shared"].includes(phase) ? curtain() : phase === "result" ? result() : match()}</div>`;
+      `<div class="shell">${header()}${phase === "online-setup" ? onlineSetup() : phase === "online-lobby" ? onlineLobby() : phase === "online-waiting" ? onlineWaiting() : phase === "title" ? title() : phase === "setup" ? setup() : ["curtain", "shared"].includes(phase) ? curtain() : phase === "result" ? result() : match()}</div>`;
     // Cell and tool edits should feel immediate, without re-fading the battlefield.
     if (renderedPhase === phase) $(".enter")?.classList.remove("enter");
     renderedPhase = phase;
@@ -314,6 +509,12 @@
       ];
   }
   function lock() {
+    if (room) {
+      const error = S.validate(game, active, draft);
+      if (error) toast(error);
+      else roomAction("lock-online");
+      return;
+    }
     const err = S.validate(game, active, draft);
     if (err) {
       toast(err);
@@ -388,8 +589,8 @@
     window.scrollTo(0, scroll);
     $(`[data-cell="${side},${x},${y}"]`)?.focus({ preventScroll: true });
   }
-  function resolveRound() {
-    last = S.resolve(game, plans);
+  function resolveRound(serverResult) {
+    last = serverResult || S.resolve(game, plans);
     phase = "animating";
     animation = { t: 0, events: last.events, attacks: last.attacks };
     // Display all newly built defenses before showing the incoming projectiles.
@@ -430,6 +631,11 @@
         phase = "report";
         render();
         if (game.result) sound("win");
+        if (queuedRoom) {
+          const state = queuedRoom;
+          queuedRoom = null;
+          syncRoom(state);
+        }
       }
     }
     frame = requestAnimationFrame(tick);
@@ -523,6 +729,63 @@
     const action = b.dataset.do;
     if (!action) return;
     if (!["resolve", "test-sound"].includes(action)) sound("click");
+    if (action === "online") {
+      phase = "online-setup";
+      render();
+      return;
+    }
+    if (action === "tutorial") {
+      tutorial();
+      return;
+    }
+    if (["create-room", "join-room", "resume-room"].includes(action)) {
+      roomAction(action);
+      return;
+    }
+    if (action === "copy-invite") {
+      navigator.clipboard
+        ?.writeText($("#invite-link").value)
+        .then(() => toast("Invite link copied. Send it to your friend."))
+        .catch(() => {
+          $("#invite-link").select();
+          toast("Select and copy the invitation above.");
+        });
+      return;
+    }
+    if (room && action === "rematch") {
+      roomAction("online-rematch");
+      return;
+    }
+    if (room && action === "next" && !game.result) {
+      roomAction("online-next");
+      return;
+    }
+    if (room && action === "home") {
+      if (room.closed) {
+        N.forget();
+        room = null;
+        game = null;
+        phase = "title";
+        render();
+        return;
+      }
+      if(game?.result){roomAction('leave-room');return;}
+      showModal(
+        "Leave your online duel?",
+        "<p>Your friend will win by forfeit. Closing the tab instead lets you reconnect later.</p>",
+        '<button class="secondary" data-do="close">Stay here</button><button class="primary" data-do="leave-room">Leave room</button>',
+      );
+      return;
+    }
+    if (action === "leave-room") {
+      roomAction(action);
+      return;
+    }
+    if (room && action === "setup") {
+      N.command('leave').catch(()=>{});
+      N.forget();
+      room = null;
+    }
     if (action === "manual") manual();
     if (action === "settings") settingsModal();
     if (action === "close") closeModal();
@@ -645,7 +908,7 @@
       render();
       e.preventDefault();
     }
-    if (e.key.toLowerCase() === "p") {
+    if (!room && e.key.toLowerCase() === "p") {
       phase = "curtain";
       resume = true;
       render();
@@ -663,7 +926,7 @@
     }
   });
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden && phase === "planning") {
+    if (!room && document.hidden && phase === "planning") {
       closeModal();
       phase = "curtain";
       resume = true;
@@ -671,10 +934,11 @@
     }
   });
   window.addEventListener("beforeunload", (e) => {
-    if (game && !game.result) {
+    if (!room && game && !game.result) {
       e.preventDefault();
       e.returnValue = "";
     }
   });
+  if (inviteCode()) phase = "online-setup";
   render();
 })();
