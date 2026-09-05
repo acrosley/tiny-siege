@@ -6,3 +6,6 @@ release/
 .cache/
 .browsers/
 artifacts/
+.data/
+dist/
+.wrangler/
