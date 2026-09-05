@@ -3,3 +3,6 @@ playwright-report/
 test-results/
 release/
 *.log
+.cache/
+.browsers/
+artifacts/

@@ -8,5 +8,10 @@
     "build": "node scripts/build.cjs",
     "start": "node scripts/serve.cjs"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
+  }
 }
