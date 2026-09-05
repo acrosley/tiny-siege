@@ -1,0 +1,9 @@
+{
+  "name": "tiny-siege",
+  "main": "dist/server/index.js",
+  "compatibility_date": "2026-09-01",
+  "assets": { "directory": "dist/client", "binding": "ASSETS" },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "tiny-siege", "database_id": "149e475e-8f02-44ff-881d-03d458182a74", "migrations_dir": "drizzle" }
+  ]
+}
