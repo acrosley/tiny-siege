@@ -262,6 +262,7 @@
         .filter((p) => p.kind === "fire").length;
     return `<main class="result enter"><div class="result-icon">${winner === null ? "✹" : "♜"}</div><div class="eyebrow">${winner === null ? "AN HONORABLE DRAW" : "VICTORY / " + (winner === 0 ? "EMBER" : "TIDE") + " COMPANY"}</div><h1>${title}</h1><p>${winner === null ? "Both command rooms fell. Neither ego survived." : "One command room still stands. That’s all the architecture you need."}<br>A fine siege. A questionable friendship.</p><div class="result-stats"><div><strong>${game.history.length}</strong><small>ROUNDS PLAYED</small></div><div><strong>${shots}</strong><small>SHOTS FIRED</small></div><div><strong>${gone}</strong><small>BLOCKS LOST</small></div></div><div class="result-buttons"><button class="primary" data-do="rematch">Settle the score <span class="arrow">↻</span></button><button class="secondary" data-do="setup">New commanders</button><button class="secondary" data-do="home">Title screen</button></div>${stage(false)}<p style="font-size:11px"><button class="text-button" data-do="history">Read the round journal ↗</button></p></main>`;
   }
+  let renderedPhase = null;
   function render() {
     if (frame) {
       cancelAnimationFrame(frame);
@@ -269,6 +270,9 @@
     }
     $("#app").innerHTML =
       `<div class="shell">${header()}${phase === "title" ? title() : phase === "setup" ? setup() : ["curtain", "shared"].includes(phase) ? curtain() : phase === "result" ? result() : match()}</div>`;
+    // Cell and tool edits should feel immediate, without re-fading the battlefield.
+    if (renderedPhase === phase) $(".enter")?.classList.remove("enter");
+    renderedPhase = phase;
     if (phase === "title") V.hero($("#hero-canvas"));
     paint();
   }
