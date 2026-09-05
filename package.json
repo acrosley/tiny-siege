@@ -1,0 +1,12 @@
+{
+  "name": "tiny-siege",
+  "version": "1.0.0",
+  "private": true,
+  "description": "An offline, simultaneous-turn fortress duel for two local players.",
+  "scripts": {
+    "test": "node --test tests/engine.test.cjs",
+    "build": "node scripts/build.cjs",
+    "start": "node scripts/serve.cjs"
+  },
+  "engines": { "node": ">=18" }
+}
