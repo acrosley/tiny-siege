@@ -6,12 +6,15 @@
   "scripts": {
     "test": "node --test tests/engine.test.cjs",
     "build": "node scripts/build.cjs",
-    "start": "node scripts/serve.cjs"
+    "start": "node scripts/serve.cjs",
+    "test:browser": "npx playwright test",
+    "format": "prettier --write index.html style.css app.js scene.js engine.js scripts/*.cjs tests/**/*.cjs playwright.config.cjs"
   },
   "engines": {
     "node": ">=18"
   },
   "devDependencies": {
-    "@playwright/test": "^1.63.0"
+    "@playwright/test": "^1.63.0",
+    "prettier": "^3.9.6"
   }
 }
